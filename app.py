@@ -3,6 +3,7 @@ import calendar
 import os
 import sys
 import tkinter as tk
+import tkinter.font as tkfont
 from datetime import date
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -11,8 +12,11 @@ from core import Ledger, calculate, demo_rows, export_csv, export_xlsx, money, r
 
 ROOT = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
 DATA = ROOT / 'data'
-BG = '#0B1520'; PANEL = '#142435'; BORDER = '#243C50'
+BG = '#F1F5FA'; PANEL = '#142435'; BORDER = '#243C50'
 TEXT = '#E7F0F7'; MUTED = '#90A7B9'; BLUE = '#3DA8EE'; GREEN = '#49C69C'
+OUTER_TEXT = '#142435'; OUTER_MUTED = '#526A7D'
+FONT_OPTIONS = ('Bahnschrift','Calibri','Candara','Century Gothic','Corbel',
+                'Franklin Gothic Medium','Tahoma','Trebuchet MS','Verdana','Georgia')
 MONTHS = ('','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь')
 KINDS = {'Closed P&L':'Закрытый P&L','Funding':'Фандинг','Fee':'Комиссия','Deposit':'Пополнение'}
 
@@ -24,6 +28,10 @@ class App:
         self.root.geometry('1230x820')
         self.root.minsize(1050, 700)
         self.root.configure(bg=BG)
+        available = set(tkfont.families(self.root))
+        self.font_options = [name for name in FONT_OPTIONS if name in available]
+        self.font_name = 'Corbel' if 'Corbel' in available else (self.font_options[0] if self.font_options else 'Arial')
+        self.font_widgets = []
         self.ledger = Ledger(DATA / 'demo.sqlite')
         demo_rows(self.ledger)
         self.year = 2026
@@ -34,15 +42,36 @@ class App:
         self.refresh()
         self.root.protocol('WM_DELETE_WINDOW', self.close)
 
-    def label(self, parent, text, size=11, color=TEXT, weight='normal', **kw):
-        return tk.Label(parent, text=text, bg=parent.cget('bg'), fg=color,
-                        font=('Segoe UI', size, weight), **kw)
+    def label(self, parent, text, size=11, color=None, weight='normal', **kw):
+        if parent.cget('bg') == BG:
+            color = OUTER_MUTED if color == MUTED else ('#147A58' if color == GREEN else OUTER_TEXT) if color in (None,TEXT,GREEN) else color
+        else:
+            color = color or TEXT
+        widget = tk.Label(parent, text=text, bg=parent.cget('bg'), fg=color,
+                          font=(self.font_name, size, weight), **kw)
+        self.font_widgets.append((widget,size,weight))
+        return widget
 
     def button(self, parent, text, action, primary=False):
-        return tk.Button(parent, text=text, command=action, bg=BLUE if primary else PANEL,
+        widget = tk.Button(parent, text=text, command=action, bg=BLUE if primary else PANEL,
                          fg=BG if primary else TEXT, activebackground='#60B7EF',
                          activeforeground=BG, relief='flat', borderwidth=0,
-                         padx=15, pady=9, cursor='hand2', font=('Segoe UI', 10, 'bold'))
+                         padx=15, pady=9, cursor='hand2', font=(self.font_name, 10, 'bold'))
+        self.font_widgets.append((widget,10,'bold'))
+        return widget
+
+    def change_font(self, event=None):
+        choice = self.font_choice.get()
+        if choice not in self.font_options:
+            return
+        self.font_name = choice
+        self.font_widgets = [(widget,size,weight) for widget,size,weight in self.font_widgets if widget.winfo_exists()]
+        for widget,size,weight in self.font_widgets:
+            widget.configure(font=(choice,size,weight))
+        self.bonus_check.configure(font=(choice,10))
+        self.style.configure('Ledger.Treeview',font=(choice,10))
+        self.style.configure('Ledger.Treeview.Heading',font=(choice,9,'bold'))
+        self.refresh_calendar()
 
     def panel(self, parent, **kw):
         return tk.Frame(parent, bg=PANEL, highlightbackground=BORDER,
@@ -57,6 +86,12 @@ class App:
         self.label(top, 'BYBIT · ЛОКАЛЬНОЕ ДЕМО', 10, MUTED).pack(side='left', padx=19, pady=7)
         self.button(top, 'Экспорт XLSX', self.save_xlsx).pack(side='right', padx=(8,0))
         self.button(top, 'Экспорт CSV', self.save_csv).pack(side='right')
+        self.font_choice = tk.StringVar(value=self.font_name)
+        font_select = ttk.Combobox(top, textvariable=self.font_choice, values=self.font_options,
+                                   state='readonly', width=21)
+        font_select.pack(side='right', padx=(0,10))
+        font_select.bind('<<ComboboxSelected>>', self.change_font)
+        self.label(top, 'Шрифт', 10, OUTER_MUTED).pack(side='right', padx=(0,7))
         self.label(outer, 'Аналитика сделок на тестовых данных в отдельной локальной базе', 11, MUTED).pack(anchor='w', pady=(3,20))
 
         stats = tk.Frame(outer, bg=BG)
@@ -93,10 +128,11 @@ class App:
         self.button(left, 'Все даты', self.clear_day).pack(fill='x')
         self.label(left, 'Нажмите дату для фильтрации.', 9, MUTED).pack(anchor='w', pady=(16,0))
         self.label(left, 'Тестовые данные · без подключения к бирже', 9, MUTED).pack(anchor='w', pady=(4,0))
-        tk.Checkbutton(left,text='Учитывать бонусы в базе',variable=self.include_bonus,
+        self.bonus_check = tk.Checkbutton(left,text='Учитывать бонусы в базе',variable=self.include_bonus,
                        command=self.refresh,bg=PANEL,fg=TEXT,selectcolor=BG,
                        activebackground=PANEL,activeforeground=TEXT,
-                       font=('Segoe UI',10)).pack(anchor='w',pady=(15,0))
+                       font=(self.font_name,10))
+        self.bonus_check.pack(anchor='w',pady=(15,0))
 
         right = self.panel(body, padx=16, pady=15)
         right.pack(side='left', fill='both', expand=True)
@@ -106,14 +142,14 @@ class App:
         self.table_title.pack(side='left')
         self.count_label = self.label(header, '', 10, MUTED)
         self.count_label.pack(side='right')
-        style = ttk.Style()
-        style.theme_use('clam')
-        style.configure('Ledger.Treeview', background=PANEL, fieldbackground=PANEL,
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+        self.style.configure('Ledger.Treeview', background=PANEL, fieldbackground=PANEL,
                         foreground=TEXT, rowheight=34, borderwidth=0,
-                        font=('Segoe UI', 10))
-        style.configure('Ledger.Treeview.Heading', background='#1B3448', foreground=TEXT,
-                        relief='flat', font=('Segoe UI', 9, 'bold'))
-        style.map('Ledger.Treeview', background=[('selected','#23577A')])
+                        font=(self.font_name, 10))
+        self.style.configure('Ledger.Treeview.Heading', background='#1B3448', foreground=TEXT,
+                        relief='flat', font=(self.font_name, 9, 'bold'))
+        self.style.map('Ledger.Treeview', background=[('selected','#23577A')])
         columns = ('date','type','usd','rate','rub','note')
         self.table = ttk.Treeview(right, columns=columns, show='headings', style='Ledger.Treeview')
         widths = (100,105,85,85,100,145)
@@ -161,7 +197,8 @@ class App:
                 tk.Button(self.calendar_frame,text=caption,width=7,height=2,
                           command=lambda d=day:self.select_day(d), relief='flat',border=0,
                           bg=BLUE if selected else tint,
-                          fg=BG if selected else TEXT, cursor='hand2').grid(row=row,column=col,padx=1,pady=2)
+                          fg=BG if selected else TEXT, font=(self.font_name,9),
+                          cursor='hand2').grid(row=row,column=col,padx=1,pady=2)
 
     def refresh(self):
         self.refresh_calendar()
