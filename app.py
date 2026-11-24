@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from core import Ledger, calculate, demo_rows, export_csv, export_xlsx, money
+from core import Ledger, calculate, demo_rows, export_csv, export_xlsx, money, result_rub
 
 ROOT = Path(__file__).parent
 DATA = ROOT / 'data'
@@ -28,6 +28,7 @@ class App:
         self.year = 2026
         self.month = 11
         self.day = None
+        self.include_bonus = tk.BooleanVar(value=False)
         self.build()
         self.refresh()
         self.root.protocol('WM_DELETE_WINDOW', self.close)
@@ -60,7 +61,7 @@ class App:
         stats = tk.Frame(outer, bg=BG)
         stats.pack(fill='x')
         self.cards = []
-        for title in ('ЗАКРЫТЫЙ P&L', 'РЕЗЕРВ НАЛОГА · ДЕМО', 'ОПЕРАЦИЙ', 'К ВЫВОДУ · ДЕМО', 'КУРС ЦБ'):
+        for title in ('СТАРТОВЫЙ ДЕПОЗИТ', 'СВЕРКА БАЛАНСА', 'ТОРГОВЫЙ РЕЗУЛЬТАТ', 'РЕЗЕРВ НАЛОГА', 'К ВЫВОДУ'):
             card = self.panel(stats, padx=17, pady=14)
             card.pack(side='left', fill='x', expand=True, padx=(0,8))
             self.label(card, title, 9, MUTED, 'bold').pack(anchor='w')
@@ -91,6 +92,10 @@ class App:
         self.button(left, 'Все даты', self.clear_day).pack(fill='x')
         self.label(left, 'Нажмите дату для фильтрации.', 9, MUTED).pack(anchor='w', pady=(16,0))
         self.label(left, 'Тестовые данные · без подключения к бирже', 9, MUTED).pack(anchor='w', pady=(4,0))
+        tk.Checkbutton(left,text='Учитывать бонусы в базе',variable=self.include_bonus,
+                       command=self.refresh,bg=PANEL,fg=TEXT,selectcolor=BG,
+                       activebackground=PANEL,activeforeground=TEXT,
+                       font=('Segoe UI',10)).pack(anchor='w',pady=(15,0))
 
         right = self.panel(body, padx=16, pady=15)
         right.pack(side='left', fill='both', expand=True)
@@ -110,7 +115,7 @@ class App:
         style.map('Ledger.Treeview', background=[('selected','#23577A')])
         columns = ('date','type','usd','rate','rub','note')
         self.table = ttk.Treeview(right, columns=columns, show='headings', style='Ledger.Treeview')
-        widths = (105,115,100,110,115,175)
+        widths = (100,105,85,85,100,145)
         names = ('ДАТА · МСК','ТИП','USD','РУБ/USD','РУБ','ДЕТАЛИ')
         for col, name, width in zip(columns,names,widths):
             self.table.heading(col, text=name)
@@ -141,31 +146,36 @@ class App:
         for widget in self.calendar_frame.winfo_children(): widget.destroy()
         for col, name in enumerate(('ПН','ВТ','СР','ЧТ','ПТ','СБ','ВС')):
             self.label(self.calendar_frame,name,9,MUTED,'bold',width=4).grid(row=0,column=col,pady=4)
-        active = {int(r['day_msk'][-2:]) for r in self.ledger.rows(self.year,self.month)}
+        day_totals = {}
+        for item in self.ledger.rows(self.year,self.month):
+            number = int(item['day_msk'][-2:])
+            day_totals[number] = day_totals.get(number,money(0)) + result_rub(item,self.include_bonus.get())
         for row, week in enumerate(calendar.monthcalendar(self.year,self.month),1):
             for col, day in enumerate(week):
                 if not day: continue
                 selected = self.day == day
-                tk.Button(self.calendar_frame,text=str(day),width=4,height=2,
+                daily = day_totals.get(day,money(0))
+                caption = f'{day}\n{daily/1000:+,.0f} тыс.' if abs(daily) >= 1000 else (f'{day}\n{daily:+,.0f} ₽' if daily else str(day))
+                tint = '#1B493F' if daily > 0 else '#512F3B' if daily < 0 else PANEL
+                tk.Button(self.calendar_frame,text=caption,width=7,height=2,
                           command=lambda d=day:self.select_day(d), relief='flat',border=0,
-                          bg=BLUE if selected else ('#21405A' if day in active else PANEL),
-                          fg=BG if selected else TEXT, cursor='hand2').grid(row=row,column=col,padx=2,pady=2)
+                          bg=BLUE if selected else tint,
+                          fg=BG if selected else TEXT, cursor='hand2').grid(row=row,column=col,padx=1,pady=2)
 
     def refresh(self):
         self.refresh_calendar()
         rows = self.ledger.rows(self.year,self.month,
                                 f'{self.year:04d}-{self.month:02d}-{self.day:02d}' if self.day else None)
         all_year = self.ledger.rows(self.year)
-        metrics = calculate(all_year,self.year)
-        self.cards[0].configure(text=f"${metrics['pnl_usd']:,.2f}")
-        self.cards[1].configure(text=f"{metrics['reserve_rub']:,.2f} ₽")
-        self.cards[2].configure(text=str(len(all_year)))
-        balance = sum((money(r['amount_usd']) for r in all_year), start=money(0))
-        reserve_usd = metrics['reserve_rub'] / money('80.96')
-        self.cards[3].configure(text=f'${max(money(balance-reserve_usd), money(0)):,.2f}')
-        self.cards[4].configure(text='80.96 ₽')
+        metrics = calculate(all_year,self.year,self.include_bonus.get())
+        self.cards[0].configure(text='Не задан')
+        self.cards[1].configure(text='Нет данных UTA')
+        self.cards[2].configure(text=f"${metrics['pnl_usd']:,.2f}\n{metrics['pnl_rub']:,.2f} ₽")
+        self.cards[3].configure(text=f"{metrics['reserve_rub']:,.2f} ₽")
+        self.cards[4].configure(text='Нет данных UTA')
         self.progress['value'] = metrics['progress']*100
-        self.progress_text.configure(text=f"{metrics['taxable_rub']:,.2f} ₽ / 2,400,000 ₽")
+        remaining = max(money('2400000') - metrics['taxable_rub'], money(0))
+        self.progress_text.configure(text=f"{metrics['taxable_rub']:,.2f} ₽ / 2 400 000 ₽ · осталось {remaining:,.2f} ₽")
         self.table_title.configure(text=f'Операции · {MONTHS[self.month]} {self.year}' +
                                    (f' · {self.day}' if self.day else ''))
         self.count_label.configure(text=f'{len(rows)} записей')
@@ -186,7 +196,8 @@ class App:
         path = filedialog.asksaveasfilename(defaultextension='.xlsx',filetypes=[('Excel','*.xlsx')],
                                             initialfile='trade-ledger-demo.xlsx')
         if path:
-            export_xlsx(self.ledger.rows(self.year),path)
+            export_xlsx(self.ledger.rows(self.year),path,year=self.year,
+                        include_bonus=self.include_bonus.get())
             messagebox.showinfo('Экспорт готов',path)
 
     def close(self):
