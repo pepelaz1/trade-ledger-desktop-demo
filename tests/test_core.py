@@ -35,8 +35,25 @@ class LedgerTests(unittest.TestCase):
             metrics = calculate(ledger.rows(),2026)
             self.assertEqual(metrics['taxable_rub'],Decimal('3000000.00'))
             self.assertEqual(metrics['reserve_rub'],Decimal('402000.00'))
+            ledger.add('loss',stamp+2000,'Closed P&L','-5000','100','test')
+            self.assertEqual(calculate(ledger.rows(),2026)['taxable_rub'],Decimal('2500000.00'))
+            self.assertEqual(calculate(ledger.rows(),2026)['reserve_rub'],Decimal('327000.00'))
+            ledger.add('bonus',stamp+3000,'Bonus','100','100','test')
+            self.assertEqual(calculate(ledger.rows(),2026)['taxable_rub'],Decimal('2500000.00'))
+            self.assertEqual(calculate(ledger.rows(),2026,include_bonus=True)['taxable_rub'],Decimal('2510000.00'))
+            calls=[]
+            def lookup(day):
+                calls.append(day)
+                return '90.12'
+            self.assertEqual(ledger.rate_for_day('2026-01-05',lookup),Decimal('90.12'))
+            self.assertEqual(ledger.rate_for_day('2026-01-05',lookup),Decimal('90.12'))
+            self.assertEqual(calls,['2026-01-05'])
+            next_year = int(datetime.fromisoformat('2027-01-01T00:05:00+03:00').timestamp()*1000)
+            ledger.add('next-year',next_year,'Closed P&L','10','100','test')
+            self.assertEqual(calculate(ledger.rows(),2027)['taxable_rub'],Decimal('1000.00'))
             export_csv(ledger.rows(),csv_path)
             self.assertTrue(csv_path.read_bytes().startswith(b'\xef\xbb\xbf'))
+            self.assertIn(';',csv_path.read_text(encoding='utf-8-sig').splitlines()[0])
             ledger.close()
         finally:
             db_path.unlink(missing_ok=True)
