@@ -15,8 +15,8 @@ DATA = ROOT / 'data'
 BG = '#F1F5FA'; PANEL = '#142435'; BORDER = '#243C50'
 TEXT = '#E7F0F7'; MUTED = '#90A7B9'; BLUE = '#3DA8EE'; GREEN = '#49C69C'
 OUTER_TEXT = '#142435'; OUTER_MUTED = '#526A7D'
-FONT_OPTIONS = ('Bahnschrift','Calibri','Candara','Century Gothic','Corbel',
-                'Franklin Gothic Medium','Tahoma','Trebuchet MS','Verdana','Georgia')
+FONT_OPTIONS = ('Bahnschrift','Calibri','Candara','Arial','Corbel',
+                'Cambria','Tahoma','Trebuchet MS','Verdana','Georgia')
 MONTHS = ('','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь')
 KINDS = {'Closed P&L':'Закрытый P&L','Funding':'Фандинг','Fee':'Комиссия','Deposit':'Пополнение'}
 
