@@ -30,7 +30,7 @@ class App:
         self.root.configure(bg=BG)
         available = set(tkfont.families(self.root))
         self.font_options = [name for name in FONT_OPTIONS if name in available]
-        self.font_name = 'Corbel' if 'Corbel' in available else (self.font_options[0] if self.font_options else 'Arial')
+        self.font_name = 'Trebuchet MS' if 'Trebuchet MS' in available else (self.font_options[0] if self.font_options else 'Arial')
         self.font_widgets = []
         self.ledger = Ledger(DATA / 'demo.sqlite')
         demo_rows(self.ledger)
