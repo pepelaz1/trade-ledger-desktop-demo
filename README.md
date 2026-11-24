@@ -35,7 +35,9 @@ py -m PyInstaller --noconfirm --onedir --windowed --name TradeLedger app.py
 - Отдельный клиент официального Bybit V5: подписанные GET-запросы, окна по шесть дней и постраничная загрузка по cursor.
 - Запрос исторического USD/RUB через XML Банка России с локальным кэшем по дате в SQLite.
 
-В списке шрифтов: Bahnschrift, Calibri, Candara, Century Gothic, Corbel, Franklin Gothic Medium, Tahoma, Trebuchet MS, Verdana и Georgia. Выбор меняет интерфейс сразу, без перезапуска.
+В списке шрифтов: Bahnschrift, Calibri, Candara, Arial, Corbel, Cambria, Tahoma, Trebuchet MS, Verdana и Georgia. Выбор меняет интерфейс сразу, без перезапуска. Все десять поддерживают знак ₽ на проверенном компьютере.
+
+![Сравнение десяти шрифтов](screenshots/font-options.png)
 
 ## Необязательный импорт из Bybit
 
