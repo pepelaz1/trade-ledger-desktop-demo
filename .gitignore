@@ -3,9 +3,12 @@ __pycache__/
 data/
 .tmp/
 .vendor/
+.venv/
 .env
 *.sqlite
 *.xlsx
 *.csv
 dist/
 build/
+*.spec
+release/
