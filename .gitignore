@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+data/
+.tmp/
+.vendor/
+.env
+*.sqlite
+*.xlsx
+*.csv
+dist/
+build/
