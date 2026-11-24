@@ -1,6 +1,7 @@
 """Windows desktop portfolio demo. Run: python app.py"""
 import calendar
 import os
+import sys
 import tkinter as tk
 from datetime import date
 from pathlib import Path
@@ -8,7 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from core import Ledger, calculate, demo_rows, export_csv, export_xlsx, money, result_rub
 
-ROOT = Path(__file__).parent
+ROOT = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
 DATA = ROOT / 'data'
 BG = '#0B1520'; PANEL = '#142435'; BORDER = '#243C50'
 TEXT = '#E7F0F7'; MUTED = '#90A7B9'; BLUE = '#3DA8EE'; GREEN = '#49C69C'
