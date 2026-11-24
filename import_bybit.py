@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from bybit import BybitClient
-from core import Ledger, cbr_usd_rate, msk_day
+from core import Ledger, msk_day
 
 
 def milliseconds(day):
@@ -28,16 +28,15 @@ def main():
         parser.error('--from-day must be before --to-day')
     client = BybitClient(key, secret)
     ledger = Ledger(args.db)
-    rates = {}
     imported = 0
     try:
         for item in client.iter_history('/v5/position/closed-pnl', begin, finish, category='linear'):
             stamp = int(item.get('updatedTime') or item.get('createdTime'))
             day = msk_day(stamp)
-            if day not in rates: rates[day] = cbr_usd_rate(day)
+            rate = ledger.rate_for_day(day)
             identifier = 'closed:' + str(item.get('orderId') or item.get('execId') or
                                          f"{item.get('symbol')}:{stamp}:{item.get('closedPnl')}")
-            ledger.add(identifier, stamp, 'Closed P&L', item['closedPnl'], rates[day],
+            ledger.add(identifier, stamp, 'Closed P&L', item['closedPnl'], rate,
                        'Bybit closed-pnl', item.get('symbol',''))
             imported += 1
         print(f'Imported {imported} closed P&L rows into {args.db}')
